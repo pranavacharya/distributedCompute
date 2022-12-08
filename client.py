@@ -19,8 +19,10 @@ output_queue = queue.Queue()
 
 @app.route('/heartbeat', methods = ['GET'])
 def heartbeat():
+    status = getSystemStatus();
     response = {
-        "ping": "pong"
+        "ping": "pong",
+        "status": status
     }
     return jsonify(response)
 
@@ -99,6 +101,10 @@ def sendFile(file_path, pid, jid):
         return True
     else:
         return False
+
+## TODO method to get system status
+def getSystemStatus():
+    return "test"
 
 threading.Thread(target=taskRunner, daemon=True).start()
 threading.Thread(target=outputPublisher, daemon=True).start()

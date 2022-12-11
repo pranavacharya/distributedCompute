@@ -6,11 +6,13 @@ def file_split(file):
     lines_per_file = 100
     smallfile = None
     with open(file) as bigfile:
+        i = 1
         for lineno, line in enumerate(bigfile):
             if lineno % lines_per_file == 0:
                 if smallfile:
                     smallfile.close()
-                small_filename = 'small_file_{}.txt'.format(lineno + lines_per_file)
+                small_filename = '{}'.format(i)
+                i += 1
                 smallfile = open("./input/"+small_filename, "w")
                 names_smallfile.append(small_filename)
             smallfile.write(line)

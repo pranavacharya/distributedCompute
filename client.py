@@ -78,12 +78,13 @@ def taskRunner():
 
 ## worker function to post task output back to server
 def outputPublisher():
-    item = output_queue.get()
-    pid = item['pid']
-    jid = item['jid']
-    op_path = item['op_path']
-    if sendFile(op_path, pid, jid):
-        output_queue.task_done();
+    while True:
+        item = output_queue.get()
+        pid = item['pid']
+        jid = item['jid']
+        op_path = item['op_path']
+        if sendFile(op_path, pid, jid):
+            output_queue.task_done()
 
 ## util to save file
 def saveFile(file, filename):

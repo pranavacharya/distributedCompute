@@ -1,5 +1,5 @@
 import sys
-big_file = sys.argv[1]
+# big_file = sys.argv[1]
 
 def file_split(file):
     names_smallfile = []
@@ -11,11 +11,11 @@ def file_split(file):
                 if smallfile:
                     smallfile.close()
                 small_filename = 'small_file_{}.txt'.format(lineno + lines_per_file)
-                smallfile = open(small_filename, "w")
+                smallfile = open("./input/"+small_filename, "w")
                 names_smallfile.append(small_filename)
             smallfile.write(line)
         if smallfile:
             smallfile.close()
     return names_smallfile
 
-print(file_split(big_file))
+# print(file_split(big_file))

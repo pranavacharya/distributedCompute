@@ -4,6 +4,7 @@ import queue
 import threading
 import json
 import requests
+import psutil
 
 UPLOAD_FOLDER = './uploads/'
 OUTPUT_FOLDER = './outputs/'
@@ -104,8 +105,9 @@ def sendFile(file_path, pid, jid):
 
 ## method to get system status
 def getSystemStatus():
-    memory = psutil.virtual_memory()[4]
-    return memory
+    mem = psutil.virtual_memory()
+    available = mem["total"] - mem["free"]
+    return available
 
 threading.Thread(target=taskRunner, daemon=True).start()
 threading.Thread(target=outputPublisher, daemon=True).start()

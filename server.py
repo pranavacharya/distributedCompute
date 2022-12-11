@@ -4,19 +4,34 @@ from flask import Flask, jsonify, request
 import os, json
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests
-
+from io import StringIO
 OUTPUT_FOLDER = './server_op/'
 
 app = Flask(__name__)
 
 clients = ['localhost:8081']
-
+statusDict=dict.fromkeys(clients,0)
+memoryDict=dict.fromkeys(clients,0)
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
 def pingClients():
     for i in range(0, len(clients)):
-        response = requests.get("http://" + clients[i] + "/heartbeat")
-        print(response)
+        try:
+            response = requests.get("http://" + clients[i] + "/heartbeat")
+        except:
+            statusDict[clients[i]]=0
+            memoryDict[clients[i]]=0
+            print(statusDict)
+            print(memoryDict)
+            continue
+        if response.status_code==200:
+            statusDict[clients[i]]=1
+            memoryDict[clients[i]]=response.json()['memory']
+        else:
+            statusDict[clients[i]]=0
+            memoryDict[clients[i]]=0
+        print(statusDict)
+        print(memoryDict)
 
 @app.route('/pingClients', methods = ['GET'])
 def get_info_to_display():

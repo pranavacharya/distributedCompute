@@ -4,6 +4,7 @@ import queue
 import threading
 import json
 import requests
+import psutil
 
 UPLOAD_FOLDER = './uploads/'
 OUTPUT_FOLDER = './outputs/'
@@ -22,7 +23,7 @@ def heartbeat():
     status = getSystemStatus();
     response = {
         "ping": "pong",
-        "status": status
+        "memory": status
     }
     return jsonify(response)
 
@@ -104,7 +105,9 @@ def sendFile(file_path, pid, jid):
 
 ## TODO method to get system status
 def getSystemStatus():
-    return "test"
+    mem = psutil.virtual_memory()
+    available = mem[0] - mem[2]
+    return available
 
 threading.Thread(target=taskRunner, daemon=True).start()
 threading.Thread(target=outputPublisher, daemon=True).start()

@@ -103,7 +103,7 @@ def sendFile(file_path, pid, jid):
     else:
         return False
 
-## TODO method to get system status
+## method to get system status
 def getSystemStatus():
     mem = psutil.virtual_memory()
     available = mem[0] - mem[2]

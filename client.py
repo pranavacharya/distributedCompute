@@ -102,9 +102,10 @@ def sendFile(file_path, pid, jid):
     else:
         return False
 
-## TODO method to get system status
+## method to get system status
 def getSystemStatus():
-    return "test"
+    memory = psutil.virtual_memory()[4]
+    return memory
 
 threading.Thread(target=taskRunner, daemon=True).start()
 threading.Thread(target=outputPublisher, daemon=True).start()

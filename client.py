@@ -23,7 +23,7 @@ def heartbeat():
     status = getSystemStatus();
     response = {
         "ping": "pong",
-        "status": status
+        "memory": status
     }
     return jsonify(response)
 
@@ -106,7 +106,7 @@ def sendFile(file_path, pid, jid):
 ## method to get system status
 def getSystemStatus():
     mem = psutil.virtual_memory()
-    available = mem["total"] - mem["free"]
+    available = mem[0] - mem[2]
     return available
 
 threading.Thread(target=taskRunner, daemon=True).start()

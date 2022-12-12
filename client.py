@@ -98,6 +98,7 @@ def sendFile(file_path, pid, jid):
         "jid" : jid
     }
     test_response = requests.post("http://" + app.config['HOST'] + "/recieveOutput", files = { "output_file": output_file, 'json': (None, json.dumps(data), 'application/json')})
+    output_file.close()
     if test_response.ok:
         return True
     else:

@@ -12,6 +12,7 @@ from job_assigner import assign_jobs_sequentially
 
 INPUT_FOLDER = './input/'
 OUTPUT_FOLDER = './server_op/'
+RESULT_FOLDER = './results/'
 PROGRAM_FILE_NAME = 'job.py'
 JOB_FILE_NAME = 'job.txt'
 
@@ -27,6 +28,7 @@ app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 app.config['INPUT_FOLDER'] = INPUT_FOLDER
 app.config['PROGRAM_FILE_NAME'] = PROGRAM_FILE_NAME
 app.config['JOB_FILE_NAME'] = JOB_FILE_NAME
+app.config['RESULT_FOLDER'] = RESULT_FOLDER
 
 # program id and job id counter
 ID = 0
@@ -134,10 +136,11 @@ def job_aggregator():
     while True:
         obj = aggregator_queue.get()
         parts = job_tracker[obj["id"]]["parts"]
-        print("aggregate results for ", parts)
+        print("aggregate results for ", obj["id"], parts)
         final_output = aggregator(obj["id"], parts)
         #save final output
         print(obj["id"], final_output)
+        publish_result(app.config['RESULT_FOLDER'] + str(obj["id"]), str(final_output))
         aggregator_queue.task_done()
 
 ## util to save file
@@ -153,6 +156,8 @@ def send_file(client_ip, id, job_id):
         "jid" : job_id.split('_')[1]
     }
     test_response = requests.post("http://" + client_ip + "/postTask", files = { "program_file": program_file, "job_file" : job_file, 'json': (None, json.dumps(data), 'application/json')})
+    program_file.close()
+    job_file.close()
     if test_response.status_code == 200:
         return True
     else:
@@ -164,6 +169,12 @@ def chunk_task(ID, file):
     # change when file is passed
     file_part = file_split(file, ID)
     return file_part
+
+## util to write content to a file
+def publish_result(filepath, content):
+    with open(filepath, 'w') as f: 
+        f.write(content)
+        f.close()
 
 scheduler = BackgroundScheduler()
 job = scheduler.add_job(pingClients, 'interval', seconds=5)

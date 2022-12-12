@@ -22,7 +22,7 @@ clients = ['localhost:8081', 'localhost:8082']
 
 status_dict=dict.fromkeys(clients, 0)
 memory_dict=dict.fromkeys(clients, 0)
-job_tracker = defaultdict(lambda: 0)
+job_tracker = defaultdict(lambda: [])
 
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 app.config['INPUT_FOLDER'] = INPUT_FOLDER
@@ -34,7 +34,7 @@ ID = 0
 
 scheduler_queue = queue.Queue()
 distributer_queue = queue.Queue()
-aggregator_queue = queue.Queue()
+asssembler_queue = queue.Queue()
 
 def pingClients():
     for i in range(0, len(clients)):
@@ -85,11 +85,11 @@ def upload_file():
         if output_file.filename == '':
             return "invalid file"
         if output_file:
-            saveFile(output_file, programID + "_" + jobID)
-            print("output file recieved form client" + programID + "_" + jobID)
-            aggregator_queue.put({
+            saveFile(output_file, programID + "-" + jobID)
+            print("output file recieved form client" + programID + "---" + jobID)
+            asssembler_queue.put({
                 "pid": programID,
-                "job_part": jobID 
+                "job_part": jobID
             })
     return "OK"
 
@@ -102,7 +102,6 @@ def job_scheduler():
 
         # assign file_chunks to clients in round robin
         assignments = assign_jobs_sequentially(status_dict, file_chunk)
-        print(assignments)
         for client in assignments:
             file_parts = assignments[client]
             for part in file_parts:
@@ -120,21 +119,24 @@ def job_distributer():
         client = obj['client']
         id = obj['id']
         job_part = obj['job_part']
-        print(obj)
         if send_file(client, id, job_part):
             distributer_queue.task_done()
 
 # function to aggregate jobs recieved
-def job_aggregator():
+def job_assembler():
     while True:
-        obj = aggregator_queue.get()
-        print("aggregate : ")
-        print(obj)
-        aggregator_queue.task_done()
+        obj = asssembler_queue.get()
+        ## todo aggregate function
+        id = int(obj['pid'])
+        job_part = obj['job_part']
+        parts = job_tracker[id]
+        parts.remove(job_part)
+        if (len(parts) == 0):
+            print("task done...........")
+        asssembler_queue.task_done()
 
 ## util to save file
 def saveFile(file, filename):
-    print(filename)
     file.save(os.path.join(app.config['OUTPUT_FOLDER'], filename))
 
 ## util to send program + job file to client
@@ -164,7 +166,7 @@ scheduler.start()
 
 threading.Thread(target=job_scheduler, daemon=True).start()
 threading.Thread(target=job_distributer, daemon=True).start()
-threading.Thread(target=job_aggregator, daemon=True).start()
+threading.Thread(target=job_assembler, daemon=True).start()
 
 def main():
     app.run(host="0.0.0.0", port=8080)

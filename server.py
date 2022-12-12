@@ -6,9 +6,13 @@ import requests
 import threading
 from collections import defaultdict
 from copy import deepcopy
-from file_splitter import file_split
+from file_splitter import file_split, folder_split
 from aggregation import aggregator
 from job_assigner import assign_jobs_sequentially
+from PIL import Image
+import PIL
+import shutil
+
 
 INPUT_FOLDER = './input/'
 OUTPUT_FOLDER = './server_op/'
@@ -167,7 +171,8 @@ def send_file(client_ip, id, job_id):
 ## util function to chunk file
 def chunk_task(ID, file):
     # change when file is passed
-    file_part = file_split(file, ID)
+    # file_part = file_split(file, ID)
+    file_part = folder_split("OCR_TEXT", ID)
     return file_part
 
 ## util to write content to a file

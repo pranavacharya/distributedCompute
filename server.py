@@ -1,12 +1,11 @@
-import time, random
-from urllib import response
-from flask import Flask, jsonify, request
+from flask import Flask, request
 import os, json
 import queue
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests
 import threading
 from collections import defaultdict
+from copy import deepcopy
 from file_splitter import file_split
 from aggregation import aggregator
 from job_assigner import assign_jobs_sequentially
@@ -35,6 +34,7 @@ ID = 0
 scheduler_queue = queue.Queue()
 distributer_queue = queue.Queue()
 asssembler_queue = queue.Queue()
+aggregator_queue = queue.Queue()
 
 def pingClients():
     for i in range(0, len(clients)):
@@ -51,19 +51,11 @@ def pingClients():
             status_dict[clients[i]]=0
             memory_dict[clients[i]]=0
 
-# @app.route('/pingClients', methods = ['GET'])
-# def get_info_to_display():
-#     response = {
-#         "ping": "pong"
-#     }
-#     return jsonify(response)
-
-## TODO send file from queue, use queue to break job and send file
 @app.route('/send', methods = ['GET'])
 def send_to_all_clients():
     global ID
     chunks = chunk_task(ID, app.config['INPUT_FOLDER'] + app.config['JOB_FILE_NAME'])
-    job_tracker[ID] = chunks
+    job_tracker[ID] = { "chunks": chunks, "parts": deepcopy(chunks)}
     obj = {
         "file_chunk": chunks,
         "ID": ID
@@ -126,14 +118,27 @@ def job_distributer():
 def job_assembler():
     while True:
         obj = asssembler_queue.get()
-        ## todo aggregate function
         id = int(obj['pid'])
         job_part = obj['job_part']
-        parts = job_tracker[id]
+        parts = job_tracker[id]["chunks"]
         parts.remove(job_part)
         if (len(parts) == 0):
-            print("task done...........")
+            print("task", id, " done....")
+            aggregator_queue.put({
+                "id": id
+            })
         asssembler_queue.task_done()
+
+# function to aggregated completed job
+def job_aggregator():
+    while True:
+        obj = aggregator_queue.get()
+        parts = job_tracker[obj["id"]]["parts"]
+        print("aggregate results for ", parts)
+        final_output = aggregator(obj["id"], parts)
+        #save final output
+        print(obj["id"], final_output)
+        aggregator_queue.task_done()
 
 ## util to save file
 def saveFile(file, filename):
@@ -167,6 +172,7 @@ scheduler.start()
 threading.Thread(target=job_scheduler, daemon=True).start()
 threading.Thread(target=job_distributer, daemon=True).start()
 threading.Thread(target=job_assembler, daemon=True).start()
+threading.Thread(target=job_aggregator, daemon=True).start()
 
 def main():
     app.run(host="0.0.0.0", port=8080)

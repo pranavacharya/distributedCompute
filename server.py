@@ -171,8 +171,7 @@ def send_file(client_ip, id, job_id):
 ## util function to chunk file
 def chunk_task(ID, file):
     # change when file is passed
-    # file_part = file_split(file, ID)
-    file_part = folder_split("OCR_TEXT", ID)
+    file_part = file_split("OCR_TEXT", ID)
     return file_part
 
 ## util to write content to a file

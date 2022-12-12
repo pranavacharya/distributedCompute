@@ -37,7 +37,7 @@ def upload_file():
         programID = req_object['pid']
         program_name = programID + ".py"
         job = request.files['job_file']
-        jobID = programID + ":" + req_object['jid']
+        jobID = programID + "_" + req_object['jid']
         if program.filename == '' or job.filename == '':
             return "invalid file"
         if program and job:
@@ -62,7 +62,7 @@ def taskRunner():
         ## running task
         p_path = os.path.join(app.config['UPLOAD_FOLDER'], pid + ".py")
         j_path = os.path.join(app.config['UPLOAD_FOLDER'], jid)
-        op_path = os.path.join(app.config['OUTPUT_FOLDER'], pid + ":" + jid + ".out")
+        op_path = os.path.join(app.config['OUTPUT_FOLDER'], pid + "-" + jid + ".out")
         os.system("python3 "  + p_path + " " + j_path + " > " + op_path)
         
         ## insert into op queue
@@ -88,7 +88,6 @@ def outputPublisher():
 
 ## util to save file
 def saveFile(file, filename):
-    print(filename)
     file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
 ## util to send file to host

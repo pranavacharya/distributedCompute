@@ -1,7 +1,7 @@
 import sys
 # big_file = sys.argv[1]
 
-def file_split(file):
+def file_split(file, ID):
     names_smallfile = []
     lines_per_file = 100
     smallfile = None
@@ -11,7 +11,7 @@ def file_split(file):
             if lineno % lines_per_file == 0:
                 if smallfile:
                     smallfile.close()
-                small_filename = '{}'.format(i)
+                small_filename = '{}_{}'.format(ID, i)
                 i += 1
                 smallfile = open("./input/"+small_filename, "w")
                 names_smallfile.append(small_filename)

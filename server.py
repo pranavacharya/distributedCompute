@@ -16,7 +16,7 @@ INPUT_FOLDER = './input/'
 OUTPUT_FOLDER = './server_op/'
 RESULT_FOLDER = './results/'
 PROGRAM_FILE_NAME = 'job.py'
-JOB_FILE_NAME = 'OCR_TEXT'
+JOB_FILE_NAME = 'job.txt'
 
 app = Flask(__name__)
 

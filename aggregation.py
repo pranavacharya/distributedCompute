@@ -6,7 +6,7 @@ def aggregator(id, file_list):
     for file in file_list:
         with open("./server_op/" + str(id) + "-" + file) as f:
             data = f.read()
-            print(data)
+            # print(data)
             if data:
                 dictonaries[file]=data
     # mega_dictionary = defaultdict(lambda: 0)  

@@ -6,11 +6,9 @@ import requests
 import threading
 from collections import defaultdict
 from copy import deepcopy
-from file_splitter import file_split, folder_split
+from file_splitter import file_split
 from aggregation import aggregator
 from job_assigner import assign_jobs_sequentially
-from PIL import Image
-import PIL
 import shutil
 
 
@@ -18,7 +16,7 @@ INPUT_FOLDER = './input/'
 OUTPUT_FOLDER = './server_op/'
 RESULT_FOLDER = './results/'
 PROGRAM_FILE_NAME = 'job.py'
-JOB_FILE_NAME = 'job.txt'
+JOB_FILE_NAME = 'OCR_TEXT'
 
 app = Flask(__name__)
 
@@ -60,7 +58,7 @@ def pingClients():
 @app.route('/send', methods = ['GET'])
 def send_to_all_clients():
     global ID
-    chunks = chunk_task(ID, app.config['INPUT_FOLDER'] + app.config['JOB_FILE_NAME'])
+    chunks = chunk_task(ID, app.config['JOB_FILE_NAME'])
     job_tracker[ID] = { "chunks": chunks, "parts": deepcopy(chunks)}
     obj = {
         "file_chunk": chunks,
@@ -171,7 +169,7 @@ def send_file(client_ip, id, job_id):
 ## util function to chunk file
 def chunk_task(ID, file):
     # change when file is passed
-    file_part = file_split("OCR_TEXT", ID)
+    file_part = file_split(file, ID)
     return file_part
 
 ## util to write content to a file

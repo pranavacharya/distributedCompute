@@ -5,6 +5,7 @@ import threading
 import json
 import requests
 import psutil
+import subprocess
 
 UPLOAD_FOLDER = './uploads/'
 OUTPUT_FOLDER = './outputs/'
@@ -63,18 +64,24 @@ def taskRunner():
         p_path = os.path.join(app.config['UPLOAD_FOLDER'], pid + ".py")
         j_path = os.path.join(app.config['UPLOAD_FOLDER'], jid)
         op_path = os.path.join(app.config['OUTPUT_FOLDER'], pid + "-" + jid + ".out")
-        os.system("python3 "  + p_path + " " + j_path + " > " + op_path)
-        
-        ## insert into op queue
-        op_obj = {
-            "pid": pid,
-            "jid": jid,
-            "op_path": op_path
-        }
-        output_queue.put(op_obj)
+        f = open(op_path, "w")
+        p = subprocess.Popen(['python3', p_path, j_path], stdout=f)
+        code = p.wait()
+        while (True):
+            if (not code == None):
+                print("breaking", code)
+                f.close()
+                # os.system("python3 "  + p_path + " " + j_path + " > " + op_path)
+                ## insert into op queue
+                op_obj = {
+                    "pid": pid,
+                    "jid": jid,
+                    "op_path": op_path
+                }
+                output_queue.put(op_obj)
+                task_queue.task_done()
+                break
 
-        ##
-        task_queue.task_done()
 
 ## worker function to post task output back to server
 def outputPublisher():

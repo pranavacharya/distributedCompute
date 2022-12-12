@@ -69,7 +69,6 @@ def taskRunner():
         code = p.wait()
         while (True):
             if (not code == None):
-                print("breaking", code)
                 f.close()
                 # os.system("python3 "  + p_path + " " + j_path + " > " + op_path)
                 ## insert into op queue

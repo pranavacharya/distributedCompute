@@ -5,97 +5,74 @@ import os, json
 import queue
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests
+import threading
+from collections import defaultdict
 from file_splitter import file_split
 from aggregation import aggregator
+from job_assigner import assign_jobs_sequentially
 
 INPUT_FOLDER = './input/'
 OUTPUT_FOLDER = './server_op/'
 PROGRAM_FILE_NAME = 'job.py'
+JOB_FILE_NAME = 'job.txt'
 
 app = Flask(__name__)
 
 clients = ['localhost:8081', 'localhost:8082']
 
-statusDict=dict.fromkeys(clients, 0)
-memoryDict=dict.fromkeys(clients, 0)
+status_dict=dict.fromkeys(clients, 0)
+memory_dict=dict.fromkeys(clients, 0)
+job_tracker = defaultdict(lambda: 0)
 
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 app.config['INPUT_FOLDER'] = INPUT_FOLDER
 app.config['PROGRAM_FILE_NAME'] = PROGRAM_FILE_NAME
+app.config['JOB_FILE_NAME'] = JOB_FILE_NAME
+
+# program id and job id counter
+ID = 0
+
+scheduler_queue = queue.Queue()
+distributer_queue = queue.Queue()
+aggregator_queue = queue.Queue()
 
 def pingClients():
     for i in range(0, len(clients)):
         try:
             response = requests.get("http://" + clients[i] + "/heartbeat")
         except:
-            statusDict[clients[i]]=0
-            memoryDict[clients[i]]=0
-            print(statusDict)
-            print(memoryDict)
+            status_dict[clients[i]]=0
+            memory_dict[clients[i]]=0
             continue
         if response.status_code==200:
-            statusDict[clients[i]]=1
-            memoryDict[clients[i]]=response.json()['memory']
+            status_dict[clients[i]]=1
+            memory_dict[clients[i]]=response.json()['memory']
         else:
-            statusDict[clients[i]]=0
-            memoryDict[clients[i]]=0
-        print(statusDict)
-        print(memoryDict)
+            status_dict[clients[i]]=0
+            memory_dict[clients[i]]=0
 
-@app.route('/pingClients', methods = ['GET'])
-def get_info_to_display():
-    response = {
-        "ping": "pong"
-    }
-    return jsonify(response)
-
-def send_file(client_ip, program_id, job_id):
-    program_file = open(app.config['INPUT_FOLDER'] + program_id, "rb")
-    job_file = open(app.config['INPUT_FOLDER'] + job_id, "rb")
-    data = {
-        "pid" : program_id.split('.')[0],
-        "jid" : job_id.split('.')[0]
-    }
-    test_response = requests.post("http://" + client_ip+"/postTask", files = { "program_file": program_file, "job_file" : job_file, 'json': (None, json.dumps(data), 'application/json')})
-    if test_response.status_code == 200:
-        return True
-    else:
-        print("Error in sending file to client")
-        return False
-
-def assign_jobs_sequentially(client_status, job_parts):
-    list_of_clients=[k for k,v in client_status.items() if v ==1]
-    len_client=len(list_of_clients)
-    len_job=len(job_parts)
-    max_len=max(len_client,len_job)
-    assign_list = [[] for x in range(len_client)]    
-    n_j=0
-    for i in range(max_len):
-        for j in range(len_client):
-            if n_j==len_job:
-                break
-            assign_list[j].append(job_parts[n_j])
-            n_j=n_j+1
-        if n_j==len_job:
-            break
-    assign_jobs={}
-    for i in range(len(list_of_clients)):    
-        assign_jobs[list_of_clients[i]]=assign_list[i]
-    return assign_jobs
+# @app.route('/pingClients', methods = ['GET'])
+# def get_info_to_display():
+#     response = {
+#         "ping": "pong"
+#     }
+#     return jsonify(response)
 
 ## TODO send file from queue, use queue to break job and send file
 @app.route('/send', methods = ['GET'])
 def send_to_all_clients():
-    split_file_op = file_split("./input/job.txt")
-    assign_job = assign_jobs_sequentially(statusDict, split_file_op)
-    active_clients = list(assign_job.keys())
-    ctr = 0
-    for each_client in active_clients:
-        for job in assign_job[each_client]:
-            if send_file(each_client, app.config['PROGRAM_FILE_NAME'], job):
-                ctr = ctr + 1
-    return { "status" : "done", "ctr" : ctr}
-
+    global ID
+    chunks = chunk_task(ID, app.config['INPUT_FOLDER'] + app.config['JOB_FILE_NAME'])
+    job_tracker[ID] = chunks
+    obj = {
+        "file_chunk": chunks,
+        "ID": ID
+    }
+    # add to scheduler queue
+    scheduler_queue.put(obj)
+    ID += 1
+    return "OK"
+    
 @app.route('/recieveOutput', methods = ['POST'])
 def upload_file():
     if request.method == 'POST':
@@ -110,16 +87,84 @@ def upload_file():
         if output_file:
             saveFile(output_file, programID + "_" + jobID)
             print("output file recieved form client" + programID + "_" + jobID)
+            aggregator_queue.put({
+                "pid": programID,
+                "job_part": jobID 
+            })
     return "OK"
+
+# function to schedule job to clients
+def job_scheduler():
+    while True:
+        obj = scheduler_queue.get()
+        file_chunk = obj['file_chunk']
+        id = obj['ID']
+
+        # assign file_chunks to clients in round robin
+        assignments = assign_jobs_sequentially(status_dict, file_chunk)
+        print(assignments)
+        for client in assignments:
+            file_parts = assignments[client]
+            for part in file_parts:
+                distributer_queue.put({
+                    "client": client,
+                    "id": id,
+                    "job_part": part
+                })
+        scheduler_queue.task_done()
+
+# function to distribute jobs to respective clients
+def job_distributer():
+    while True:
+        obj = distributer_queue.get()
+        client = obj['client']
+        id = obj['id']
+        job_part = obj['job_part']
+        print(obj)
+        if send_file(client, id, job_part):
+            distributer_queue.task_done()
+
+# function to aggregate jobs recieved
+def job_aggregator():
+    while True:
+        obj = aggregator_queue.get()
+        print("aggregate : ")
+        print(obj)
+        aggregator_queue.task_done()
 
 ## util to save file
 def saveFile(file, filename):
     print(filename)
     file.save(os.path.join(app.config['OUTPUT_FOLDER'], filename))
 
+## util to send program + job file to client
+def send_file(client_ip, id, job_id):
+    program_file = open(app.config['INPUT_FOLDER'] + app.config['PROGRAM_FILE_NAME'], "rb")
+    job_file = open(app.config['INPUT_FOLDER'] + job_id, "rb")
+    data = {
+        "pid" : str(id),
+        "jid" : job_id.split('_')[1]
+    }
+    test_response = requests.post("http://" + client_ip + "/postTask", files = { "program_file": program_file, "job_file" : job_file, 'json': (None, json.dumps(data), 'application/json')})
+    if test_response.status_code == 200:
+        return True
+    else:
+        print("Error in sending file to client")
+        return False
+
+## util function to chunk file
+def chunk_task(ID, file):
+    # change when file is passed
+    file_part = file_split(file, ID)
+    return file_part
+
 scheduler = BackgroundScheduler()
 job = scheduler.add_job(pingClients, 'interval', seconds=5)
 scheduler.start()
+
+threading.Thread(target=job_scheduler, daemon=True).start()
+threading.Thread(target=job_distributer, daemon=True).start()
+threading.Thread(target=job_aggregator, daemon=True).start()
 
 def main():
     app.run(host="0.0.0.0", port=8080)

@@ -2,19 +2,26 @@ import time, random
 from urllib import response
 from flask import Flask, jsonify, request
 import os, json
+import queue
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests
-# from io import StringIO
-# from Assign_jobs_sequentially import assign_jobs_sequentially
 from file_splitter import file_split
+from aggregation import aggregator
+
+INPUT_FOLDER = './input/'
 OUTPUT_FOLDER = './server_op/'
+PROGRAM_FILE_NAME = 'job.py'
 
 app = Flask(__name__)
 
-clients = ['localhost:8081']
-statusDict=dict.fromkeys(clients,0)
-memoryDict=dict.fromkeys(clients,0)
+clients = ['localhost:8081', 'localhost:8082']
+
+statusDict=dict.fromkeys(clients, 0)
+memoryDict=dict.fromkeys(clients, 0)
+
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
+app.config['INPUT_FOLDER'] = INPUT_FOLDER
+app.config['PROGRAM_FILE_NAME'] = PROGRAM_FILE_NAME
 
 def pingClients():
     for i in range(0, len(clients)):
@@ -42,26 +49,20 @@ def get_info_to_display():
     }
     return jsonify(response)
 
-def send_file(client_ip,job_id,program_id):
-    program_file = open("./input/"+program_id, "rb")
-    job_file = open("./input/"+job_id, "rb")
-    job_file = open(job_id, "rb")
-    print(job_file)
+def send_file(client_ip, program_id, job_id):
+    program_file = open(app.config['INPUT_FOLDER'] + program_id, "rb")
+    job_file = open(app.config['INPUT_FOLDER'] + job_id, "rb")
     data = {
         "pid" : program_id.split('.')[0],
         "jid" : job_id.split('.')[0]
     }
     test_response = requests.post("http://" + client_ip+"/postTask", files = { "program_file": program_file, "job_file" : job_file, 'json': (None, json.dumps(data), 'application/json')})
-    if test_response.ok:
-        # done
-        print("Upload completed successfully!")
-        print(test_response.text)
+    if test_response.status_code == 200:
+        return True
     else:
-        # error
-        print("Something went wrong!")
-    return "done"
+        print("Error in sending file to client")
+        return False
 
- 
 def assign_jobs_sequentially(client_status, job_parts):
     list_of_clients=[k for k,v in client_status.items() if v ==1]
     len_client=len(list_of_clients)
@@ -82,44 +83,18 @@ def assign_jobs_sequentially(client_status, job_parts):
         assign_jobs[list_of_clients[i]]=assign_list[i]
     return assign_jobs
 
+## TODO send file from queue, use queue to break job and send file
 @app.route('/send', methods = ['GET'])
 def send_to_all_clients():
-    split_file_op=file_split("./input/job.txt")
-    print(split_file_op)
-    assign_job=assign_jobs_sequentially(statusDict,split_file_op )
-    active_clients=list(assign_job.keys())
-    #active_clients=[k for k,v in client_status.items() if v ==1]
-    ctr=0
+    split_file_op = file_split("./input/job.txt")
+    assign_job = assign_jobs_sequentially(statusDict, split_file_op)
+    active_clients = list(assign_job.keys())
+    ctr = 0
     for each_client in active_clients:
         for job in assign_job[each_client]:
-            # try:
-            print(each_client)
-            print(job)
-            send_file(each_client,job,"program1.py")
-            ctr=ctr+1
-            # except:
-            #     print("send_file failed")
-    return {"status":"done","ctr":ctr}
-
-# def send_file():
-#     program_file = open("./input/program1.py", "rb")
-#     job_file = open("./input/test.txt", "rb")
-#     split_job_files=file_split("./input/job.txt")
-#     assign_jobs_sequentially(statusDict, split_job_files)
-#     data = {
-#         "pid" : "1",
-#         "jid" : "1"
-#     }
-#     test_response = requests.post("http://localhost:8081/postTask", files = { "program_file": program_file, "job_file" : job_file, 'json': (None, json.dumps(data), 'application/json')})
-#     if test_response.ok:
-#         # done
-#         print("Upload completed successfully!")
-#         print(test_response.text)
-#     else:
-#         # error
-#         print("Something went wrong!")
-#     return "done"
-
+            if send_file(each_client, app.config['PROGRAM_FILE_NAME'], job):
+                ctr = ctr + 1
+    return { "status" : "done", "ctr" : ctr}
 
 @app.route('/recieveOutput', methods = ['POST'])
 def upload_file():
@@ -133,9 +108,8 @@ def upload_file():
         if output_file.filename == '':
             return "invalid file"
         if output_file:
-            ##TODO
-            saveFile(output_file, 'output.txt')
-            print("file recieved")
+            saveFile(output_file, programID + "_" + jobID)
+            print("output file recieved form client" + programID + "_" + jobID)
     return "OK"
 
 ## util to save file

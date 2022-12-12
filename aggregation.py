@@ -7,5 +7,4 @@ def aggregator(dictonaries):
             mega_dictionary[key] += val
     return mega_dictionary
 
-
-print(aggregator([{'a': 1, 'b': 2}, {'a': 1, 'b': 2}, {'a': 1, 'b': 2}]))
+#print(aggregator([{'a': 1, 'b': 2}, {'a': 1, 'b': 2}, {'a': 1, 'b': 2}]))

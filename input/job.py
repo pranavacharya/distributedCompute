@@ -1,20 +1,22 @@
-import sys
 import json
+import pytesseract
+import numpy as np
+import cv2 # OpenCV
+import sys
 input = sys.argv[1]
 
-def word_count(str):
-    counts = dict()
-    words = str.split()
-
-    for word in words:
-        if word in counts:
-            counts[word] += 1
-        else:
-            counts[word] = 1
-
-    return counts
-
-with open(input, 'r') as f:
-    txt = f.read()
-    word = word_count(txt)
-    print(json.dumps(word))
+print(sys.argv)
+def pytesseract_ocr(input_img):
+    img=cv2.imread(input_img)
+    text=""
+    try:
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        text = pytesseract.image_to_string(rgb)
+    except:
+        pass
+    # cv2.imshow(window_name,rgb)
+    #cv2.waitKey(0)
+    
+    return text
+op=pytesseract_ocr(input)
+print(op)

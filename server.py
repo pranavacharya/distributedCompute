@@ -9,6 +9,8 @@ from copy import deepcopy
 from file_splitter import file_split
 from aggregation import aggregator
 from job_assigner import assign_jobs_sequentially
+import shutil
+
 
 INPUT_FOLDER = './input/'
 OUTPUT_FOLDER = './server_op/'
@@ -56,7 +58,7 @@ def pingClients():
 @app.route('/send', methods = ['GET'])
 def send_to_all_clients():
     global ID
-    chunks = chunk_task(ID, app.config['INPUT_FOLDER'] + app.config['JOB_FILE_NAME'])
+    chunks = chunk_task(ID, app.config['JOB_FILE_NAME'])
     job_tracker[ID] = { "chunks": chunks, "parts": deepcopy(chunks)}
     obj = {
         "file_chunk": chunks,
